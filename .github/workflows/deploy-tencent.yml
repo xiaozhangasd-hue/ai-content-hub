@@ -66,9 +66,9 @@ jobs:
             fi
 
             cd "$APP_DIR"
-            git fetch origin "$BRANCH"
-            git checkout "$BRANCH"
-            git reset --hard "origin/$BRANCH"
+            git -c safe.directory="$APP_DIR" fetch origin "$BRANCH"
+            git -c safe.directory="$APP_DIR" checkout "$BRANCH"
+            git -c safe.directory="$APP_DIR" reset --hard "origin/$BRANCH"
 
             if [ -f "$TMP_ENV" ]; then
               mv "$TMP_ENV" "$APP_DIR/.env"
