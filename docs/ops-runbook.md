@@ -96,7 +96,6 @@ bash scripts/deploy-production.sh
 - `PROD_PORT`
 - `PROD_USER`
 - `PROD_SSH_KEY`
-- `PROD_SSH_FINGERPRINT`
 
 ## 常见故障
 

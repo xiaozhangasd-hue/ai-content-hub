@@ -137,7 +137,6 @@ Actions 依赖以下仓库级 Secrets：
 - `PROD_PORT`
 - `PROD_USER`
 - `PROD_SSH_KEY`
-- `PROD_SSH_FINGERPRINT`
 
 ## 常用运维命令
 

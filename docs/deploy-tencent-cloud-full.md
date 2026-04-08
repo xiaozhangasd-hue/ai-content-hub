@@ -160,7 +160,6 @@ server {
 - `PROD_PORT`
 - `PROD_USER`
 - `PROD_SSH_KEY`
-- `PROD_SSH_FINGERPRINT`
 
 ## 6. 发布命令
 

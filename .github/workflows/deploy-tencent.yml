@@ -46,7 +46,6 @@ jobs:
           username: ${{ secrets.PROD_USER }}
           port: ${{ secrets.PROD_PORT }}
           key: ${{ secrets.PROD_SSH_KEY }}
-          fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
           script_stop: true
           command_timeout: 30m
           script: |

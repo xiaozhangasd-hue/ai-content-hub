@@ -38,7 +38,6 @@ pnpm build
 - `PROD_PORT`
 - `PROD_USER`
 - `PROD_SSH_KEY`
-- `PROD_SSH_FINGERPRINT`
 
 ### 3. 服务器端部署
 
