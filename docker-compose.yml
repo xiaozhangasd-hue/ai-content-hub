@@ -1,0 +1,46 @@
+# 南都AI Docker Compose 配置
+# 使用方式: docker-compose up -d
+
+version: '3.8'
+
+services:
+  nandu-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nandu-ai
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/data/data.db
+      - JWT_SECRET=${JWT_SECRET:-change-this-secret}
+      - AI_PROVIDER=${AI_PROVIDER:-deepseek}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      - SILICONFLOW_API_KEY=${SILICONFLOW_API_KEY}
+      - IMAGE_PROVIDER=${IMAGE_PROVIDER:-siliconflow}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/var/log/nandu-ai
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# 可选：添加Nginx反向代理
+# nginx:
+#   image: nginx:alpine
+#   container_name: nandu-ai-nginx
+#   restart: unless-stopped
+#   ports:
+#     - "80:80"
+#     - "443:443"
+#   volumes:
+#     - ./nginx.conf:/etc/nginx/nginx.conf
+#     - ./ssl:/etc/nginx/ssl
+#   depends_on:
+#     - nandu-ai

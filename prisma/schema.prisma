@@ -1,0 +1,1116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== 平台管理员 ====================
+model PlatformAdmin {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  name      String?
+  role      String   @default("admin") // admin/super_admin
+  isActive  Boolean  @default(true)
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([username])
+}
+
+// ==================== 校区 ====================
+model Campus {
+  id         String   @id @default(cuid())
+  merchantId String
+  name       String   // 校区名称：XX校区
+  address    String?  // 校区地址
+  phone      String?  // 校区电话
+  status     String   @default("active") // active/inactive
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  merchant   Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  admins     Admin[]
+  customers  Customer[]
+  students   Student[]
+  teachers   Teacher[]
+  classes    Class[]
+  medias     StudentMedia[]  // 媒体素材
+  mediaCollections MediaCollection[]  // 媒体集合
+  
+  @@unique([merchantId, name])
+  @@index([merchantId])
+}
+
+// 管理员账号
+model Admin {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  name      String?
+  role      String   @default("admin") // admin/campus_manager/teacher
+  campusId  String?  // 所属校区（校区管理员/教师）
+  campusIds String?  // 可管理的校区ID列表（逗号分隔，总部管理员可管理多校区）
+  isActive  Boolean  @default(true)
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  campus    Campus?  @relation(fields: [campusId], references: [id])
+  
+  @@index([username])
+  @@index([campusId])
+}
+
+// 商家（培训机构）
+model Merchant {
+  id          String   @id @default(cuid())
+  phone       String   @unique
+  password    String   @default("$2a$10$K7L/V8Q5Y9Z3X2W1E0R9T.O8P7N6M5K4J3I2H1G0F9E8D7C6B5A4") // 默认密码: 123456
+  name        String?  // 联系人姓名
+  institution String?  // 机构名称
+  category    String?  // 机构类型：艺术、体育
+  subjects    String?  // 科目，逗号分隔
+  city        String?  // 城市
+  address     String?  // 详细地址
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  campuses      Campus[]
+  contents      Content[]
+  courses       Course[]
+  subscriptions Subscription[]
+  paymentOrders PaymentOrder[]
+  paymentTransactions PaymentTransaction[]
+  paymentRefunds PaymentRefund[]
+  usageRecords  UsageRecord[]
+  customers     Customer[]
+  activities    Activity[]
+  moments       Moment[]
+}
+
+// 意向家长（客户）
+model Customer {
+  id           String   @id @default(cuid())
+  merchantId   String
+  campusId     String?  // 所属校区
+  name         String   // 家长姓名
+  phone        String   // 联系电话
+  childName    String?  // 孩子姓名
+  childAge     Int?     // 孩子年龄
+  intentCourse String?  // 意向课程
+  source       String?  // 来源：朋友圈、转介绍、地推、线上广告
+  status       String   @default("new") // new, contacted, invited, trial, signed, lost
+  level        String   @default("warm") // hot, warm, cold
+  tags         String?  // 标签，逗号分隔
+  note         String?  // 备注
+  lastContact  DateTime? // 最后联系时间
+  nextFollowUp DateTime? // 下次跟进时间
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  merchant     Merchant       @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  campus       Campus?        @relation(fields: [campusId], references: [id])
+  followUps    FollowUp[]
+  
+  @@index([merchantId])
+  @@index([campusId])
+  @@index([status])
+  @@index([level])
+}
+
+// 跟进记录
+model FollowUp {
+  id          String   @id @default(cuid())
+  customerId  String
+  type        String   // phone, wechat, visit, trial
+  content     String   // 跟进内容
+  result      String?  // 跟进结果
+  nextAction  String?  // 下一步行动
+  nextTime    DateTime? // 下次跟进时间
+  createdAt   DateTime @default(now())
+  
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  @@index([customerId])
+  @@index([createdAt])
+}
+
+// 内容生成记录
+model Content {
+  id          String   @id @default(cuid())
+  merchantId  String
+  type        String   // text, image, video, avatar
+  title       String?
+  description String?
+  content     String?
+  mediaUrl    String?
+  status      String   @default("pending")
+  prompt      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  merchant    Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  
+  @@index([merchantId])
+  @@index([type])
+}
+
+// 课程
+model Course {
+  id          String   @id @default(cuid())
+  merchantId  String
+  title       String
+  description String?
+  price       Float?
+  teacher     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  merchant    Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  
+  @@index([merchantId])
+}
+
+// 验证码
+model VerificationCode {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  @@index([phone])
+  @@index([code])
+}
+
+// 会员套餐
+model MembershipPlan {
+  id          String   @id @default(cuid())
+  name        String
+  price       Float
+  yearlyPrice Float?
+  features    String
+  limits      String
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  subscriptions Subscription[]
+  paymentOrders PaymentOrder[]
+  
+  @@index([isActive])
+}
+
+// 订阅
+model Subscription {
+  id          String   @id @default(cuid())
+  merchantId  String
+  planId      String
+  status      String   @default("active")
+  startDate   DateTime @default(now())
+  endDate     DateTime
+  autoRenew   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  merchant    Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  plan        MembershipPlan @relation(fields: [planId], references: [id])
+  
+  @@index([merchantId])
+  @@index([status])
+}
+
+// ==================== 支付系统（平台级） ====================
+
+model PaymentOrder {
+  id            String   @id @default(cuid())
+  orderNo       String   @unique
+  merchantId    String
+  planId        String?
+  provider      String   // wechat | alipay
+  channel       String?  // jsapi | native | h5 | app | page
+  businessType  String   @default("subscription") // subscription/recharge/other
+  subject       String
+  body          String?
+  amount        Float
+  currency      String   @default("CNY")
+  status        String   @default("pending") // pending/paid/failed/cancelled/refunded/closed
+  providerOrderNo String?
+  paidAt        DateTime?
+  expiredAt     DateTime?
+  notifyAt      DateTime?
+  notifyPayload String?
+  extra         String?  // JSON
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  merchant      Merchant       @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  plan          MembershipPlan? @relation(fields: [planId], references: [id])
+  transactions  PaymentTransaction[]
+  refunds       PaymentRefund[]
+
+  @@index([merchantId])
+  @@index([provider])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model PaymentTransaction {
+  id              String   @id @default(cuid())
+  orderId         String
+  merchantId      String
+  provider        String   // wechat | alipay
+  tradeNo         String?  @unique
+  outTradeNo      String?
+  status          String   @default("pending") // pending/success/failed
+  amount          Float
+  fee             Float    @default(0)
+  buyer           String?
+  payer           String?
+  paidAt          DateTime?
+  rawPayload      String?  // JSON
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  order           PaymentOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  merchant        Merchant     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([merchantId])
+  @@index([provider])
+  @@index([status])
+}
+
+model PaymentRefund {
+  id              String   @id @default(cuid())
+  orderId         String
+  merchantId      String
+  provider        String   // wechat | alipay
+  refundNo        String   @unique
+  providerRefundNo String?
+  amount          Float
+  status          String   @default("pending") // pending/success/failed
+  reason          String?
+  refundedAt      DateTime?
+  rawPayload      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  order           PaymentOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  merchant        Merchant     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([merchantId])
+  @@index([provider])
+  @@index([status])
+}
+
+model PaymentWebhookEvent {
+  id            String   @id @default(cuid())
+  provider      String   // wechat | alipay
+  eventId       String
+  eventType     String?
+  payload       String?
+  processed     Boolean  @default(false)
+  processedAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  @@unique([provider, eventId])
+  @@index([provider])
+  @@index([createdAt])
+}
+
+// 使用量
+model UsageRecord {
+  id          String   @id @default(cuid())
+  merchantId  String
+  type        String
+  count       Int      @default(1)
+  period      String
+  createdAt   DateTime @default(now())
+  
+  merchant    Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  
+  @@unique([merchantId, type, period])
+  @@index([merchantId])
+}
+
+// 活动
+model Activity {
+  id          String   @id @default(cuid())
+  merchantId  String
+  title       String
+  type        String   // 体验课、节日活动、拼团、转介绍
+  startDate   DateTime?
+  endDate     DateTime?
+  description String?  // JSON: {theme, flow, scripts, posts}
+  status      String   @default("draft") // draft, published, finished
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  merchant    Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  
+  @@index([merchantId])
+  @@index([status])
+}
+
+// 朋友圈素材
+model Moment {
+  id          String   @id @default(cuid())
+  merchantId  String
+  category    String   // 教育知识、学员案例、活动宣传、机构日常
+  title       String
+  content     String
+  imageUrl    String?
+  publishDate DateTime? // 推荐发布日期
+  publishTime String?  // 推荐发布时间：morning, noon, evening
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  merchant    Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  
+  @@index([merchantId])
+  @@index([category])
+}
+
+// 话术模板
+model ScriptTemplate {
+  id          String   @id @default(cuid())
+  merchantId  String?  // 商家ID，null表示公共话术
+  category    String   // 异议处理、邀约话术、跟进话术、续费话术
+  title       String   // 话术标题
+  question    String   // 家长问题
+  answer      String   // 回复话术
+  tags        String?  // 标签，逗号分隔
+  usageCount  Int      @default(0)
+  isPublic    Boolean  @default(false) // 是否公共话术
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  
+  @@index([category])
+  @@index([merchantId])
+}
+
+// ==================== 教务系统 ====================
+
+// ==================== 教师（可作子账号登录） ====================
+model Teacher {
+  id          String   @id @default(cuid())
+  merchantId  String
+  campusId    String?  // 所属校区
+  name        String
+  phone       String?
+  avatar      String?
+  subjects    String?  // 教授科目，逗号分隔
+  status      String   @default("active") // active/inactive
+  note        String?
+  
+  // 子账号登录信息（可选）
+  username    String?  @unique // 登录账号，有值则可登录
+  password    String?  // 登录密码
+  accountRole String?  // teacher/manager 老师或校区管理员
+  lastLogin   DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  campus      Campus?  @relation(fields: [campusId], references: [id])
+  classes     Class[]
+  feedbacks   Feedback[]
+  medias      StudentMedia[]  // 上传的媒体素材
+  
+  @@index([merchantId])
+  @@index([campusId])
+  @@index([username])
+}
+
+// 学生
+model Student {
+  id           String   @id @default(cuid())
+  merchantId   String
+  campusId     String?  // 所属校区
+  name         String
+  gender       String?  // male/female
+  birthDate    DateTime?
+  avatar       String?
+  phone        String?  // 联系电话
+  parentName   String?  // 家长姓名（兼容旧数据）
+  parentPhone  String?  // 家长电话（兼容旧数据）
+  parentPhones String?  // 多个家长手机号，逗号分隔
+  note         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  campus        Campus?  @relation(fields: [campusId], references: [id])
+  enrollments   Enrollment[]
+  attendances   Attendance[]
+  feedbacks     Feedback[]
+  growthRecords GrowthRecord[]
+  leaveRequests LeaveRequest[]
+  recharges     Recharge[]
+  learningReports LearningReport[]
+  medias        StudentMedia[]  // 媒体素材
+  faces         StudentFace[]   // 人脸特征
+  parents       ParentChild[]   // 关联的家长
+  
+  @@index([merchantId])
+  @@index([campusId])
+  @@index([parentPhone])
+  @@index([parentPhones])
+}
+
+// 课程模板
+model CourseTemplate {
+  id          String   @id @default(cuid())
+  merchantId  String
+  name        String
+  category    String?  // 美术、舞蹈、钢琴...
+  totalHours  Int      @default(10)
+  duration    Int      @default(45)  // 单节时长（分钟）
+  price       Float?
+  description String?
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  classes     Class[]
+  
+  @@index([merchantId])
+}
+
+// 班级
+model Class {
+  id           String   @id @default(cuid())
+  merchantId   String
+  campusId     String?  // 所属校区
+  name         String
+  courseTemplateId String?
+  courseTemplate    CourseTemplate? @relation(fields: [courseTemplateId], references: [id])
+  teacherId    String?
+  teacher      Teacher? @relation(fields: [teacherId], references: [id])
+  capacity     Int      @default(10)
+  status       String   @default("active") // active/paused/ended
+  startDate    DateTime?
+  endDate      DateTime?
+  note         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  campus       Campus?  @relation(fields: [campusId], references: [id])
+  schedules    Schedule[]
+  enrollments  Enrollment[]
+  lessons      Lesson[]
+  leaveRequests LeaveRequest[]
+  medias       StudentMedia[]  // 课堂媒体素材
+  
+  @@index([merchantId])
+  @@index([campusId])
+  @@index([teacherId])
+}
+
+// 上课时间表（循环）
+model Schedule {
+  id        String   @id @default(cuid())
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  weekday   Int              // 1-7 周一到周日
+  startTime String           // "14:00"
+  endTime   String           // "15:30"
+  classroom String?
+  createdAt DateTime @default(now())
+  
+  @@index([classId])
+}
+
+// 具体课程（排课记录）
+model Lesson {
+  id          String   @id @default(cuid())
+  classId     String
+  class       Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  date        DateTime
+  startTime   String
+  endTime     String
+  classroom   String?
+  topic       String?
+  status      String   @default("scheduled") // scheduled/ongoing/completed/cancelled
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  attendances Attendance[]
+  feedbacks   Feedback[]
+  medias      StudentMedia[]  // 课堂媒体素材
+  
+  @@index([classId])
+  @@index([date])
+  @@index([status])
+}
+
+// 学员班级关联
+model Enrollment {
+  id             String   @id @default(cuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId        String
+  class          Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  remainingHours Float    @default(0)
+  totalHours     Float    @default(0)
+  status         String   @default("active") // active/paused/ended
+  joinDate       DateTime @default(now())
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  attendances    Attendance[]
+  deductions     Deduction[]
+  
+  @@unique([studentId, classId])
+  @@index([studentId])
+  @@index([classId])
+}
+
+// 考勤记录
+model Attendance {
+  id           String   @id @default(cuid())
+  lessonId     String
+  lesson       Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id])
+  status       String   @default("pending") // pending/present/absent/leave/late/early_leave
+  checkInTime  DateTime?
+  checkOutTime DateTime?
+  remark       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@unique([lessonId, enrollmentId])
+  @@index([lessonId])
+  @@index([studentId])
+  @@index([status])
+}
+
+// 课时消耗记录
+model Deduction {
+  id           String   @id @default(cuid())
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lessonId     String?
+  hours        Float
+  type         String   // lesson/adjust/refund/gift
+  remark       String?
+  operatorId   String?  // 操作人ID
+  createdAt    DateTime @default(now())
+  
+  @@index([enrollmentId])
+  @@index([createdAt])
+}
+
+// 课时充值记录
+model Recharge {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  hours       Float
+  amount      Float?
+  paymentType String?  // cash/wechat/alipay/other
+  status      String   @default("paid") // pending/paid/refunded
+  remark      String?
+  operatorId  String?
+  createdAt   DateTime @default(now())
+  
+  @@index([studentId])
+  @@index([createdAt])
+}
+
+// 课堂点评
+model Feedback {
+  id           String   @id @default(cuid())
+  lessonId     String
+  lesson       Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  teacherId    String
+  teacher      Teacher  @relation(fields: [teacherId], references: [id])
+  content      String
+  images       String?  // JSON数组
+  video        String?
+  ratings      String?  // JSON对象: {"focus": 5, "creativity": 4, ...}
+  tags         String?  // JSON数组
+  liked        Boolean  @default(false)
+  parentComment String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([lessonId])
+  @@index([studentId])
+  @@index([teacherId])
+}
+
+// 点评模板
+model FeedbackTemplate {
+  id         String   @id @default(cuid())
+  merchantId String
+  category   String?  // 表扬/建议/进步
+  content    String
+  tags       String?
+  useCount   Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  
+  @@index([merchantId])
+  @@index([category])
+}
+
+// 请假申请
+model LeaveRequest {
+  id         String   @id @default(cuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId    String
+  class      Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  startDate  DateTime
+  endDate    DateTime
+  reason     String
+  status     String   @default("pending") // pending/approved/rejected
+  approverId String?
+  approvedAt DateTime?
+  remark     String?
+  createdAt  DateTime @default(now())
+  
+  @@index([studentId])
+  @@index([classId])
+  @@index([status])
+}
+
+// 成长档案
+model GrowthRecord {
+  id         String   @id @default(cuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type       String   // work/milestone/feedback/report
+  title      String
+  content    String?
+  media      String?  // JSON数组
+  recordDate DateTime
+  tags       String?
+  feedbackId String?
+  isPublic   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  
+  @@index([studentId])
+  @@index([type])
+  @@index([recordDate])
+}
+
+// 学习报告
+model LearningReport {
+  id             String   @id @default(cuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  period         String   // 2024年3月
+  startDate      DateTime
+  endDate        DateTime
+  totalLessons   Int      @default(0)
+  attendanceRate Float    @default(0)
+  progress       String?
+  highlights     String?
+  suggestions    String?
+  skills         String?  // JSON对象
+  generatedBy    String   @default("manual") // manual/ai
+  createdAt      DateTime @default(now())
+  
+  @@index([studentId])
+  @@index([period])
+}
+
+// ==================== 学员媒体素材系统 ====================
+
+// 学员媒体素材（照片/视频）
+model StudentMedia {
+  id           String   @id @default(cuid())
+  merchantId   String
+  campusId     String?
+  studentId    String?  // 关联学员（人脸识别后自动关联）
+  teacherId    String?  // 上传老师
+  classId      String?  // 关联班级
+  lessonId     String?  // 关联课程
+  type         String   // photo/video
+  storageKey   String   // 云存储Key
+  thumbnailKey String?  // 缩略图Key
+  fileName     String
+  fileSize     Int?
+  duration     Int?     // 视频时长（秒）
+  width        Int?
+  height       Int?
+  description  String?
+  tags         String?  // JSON数组
+  recordDate   DateTime @default(now()) // 拍摄/记录日期
+  // 人脸识别结果
+  faceDetected Boolean  @default(false)
+  faceCount    Int      @default(0)
+  faceData     String?  // JSON: 检测到的人脸信息
+  // 状态
+  status       String   @default("active") // active/archived/deleted
+  isPublic     Boolean  @default(true) // 是否对家长可见
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  campus       Campus?  @relation(fields: [campusId], references: [id])
+  student      Student? @relation(fields: [studentId], references: [id])
+  teacher      Teacher? @relation(fields: [teacherId], references: [id])
+  class        Class?   @relation(fields: [classId], references: [id])
+  lesson       Lesson?  @relation(fields: [lessonId], references: [id])
+  faceMatches  MediaFaceMatch[]
+  collectionItems CollectionItem[]
+  
+  @@index([merchantId])
+  @@index([campusId])
+  @@index([studentId])
+  @@index([teacherId])
+  @@index([type])
+  @@index([recordDate])
+}
+
+// 学员人脸特征
+model StudentFace {
+  id           String   @id @default(cuid())
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  faceToken    String   @unique // 百度人脸库中的唯一标识
+  imageKey     String   // 注册时使用的照片Key
+  quality      Float?   // 人脸质量分数
+  status       String   @default("active") // active/deleted
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  faceMatches  MediaFaceMatch[]
+  
+  @@index([studentId])
+  @@index([faceToken])
+}
+
+// 媒体人脸匹配记录
+model MediaFaceMatch {
+  id           String   @id @default(cuid())
+  mediaId      String
+  media        StudentMedia @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  faceId       String
+  face         StudentFace  @relation(fields: [faceId], references: [id], onDelete: Cascade)
+  confidence   Float    // 匹配置信度 0-1
+  faceRect     String?  // JSON: 人脸在图片中的位置
+  createdAt    DateTime @default(now())
+  
+  @@unique([mediaId, faceId])
+  @@index([mediaId])
+  @@index([faceId])
+}
+
+// 媒体集合（用于学期总结等）
+model MediaCollection {
+  id          String   @id @default(cuid())
+  merchantId  String
+  campusId    String?
+  title       String
+  description String?
+  type        String   // semester_report/quarterly_report/activity/custom
+  periodStart DateTime?
+  periodEnd   DateTime?
+  coverKey    String?  // 封面图Key
+  // AI生成内容
+  aiSummary   String?  // AI生成的总结内容
+  aiGenerated Boolean  @default(false)
+  // 统计
+  mediaCount  Int      @default(0)
+  viewCount   Int      @default(0)
+  // 状态
+  status      String   @default("draft") // draft/published/archived
+  isPublic    Boolean  @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  campus      Campus?  @relation(fields: [campusId], references: [id])
+  items       CollectionItem[]
+  
+  @@index([merchantId])
+  @@index([campusId])
+  @@index([type])
+  @@index([status])
+}
+
+// 集合项目
+model CollectionItem {
+  id           String   @id @default(cuid())
+  collectionId String
+  collection   MediaCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  mediaId      String
+  media        StudentMedia @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  sortOrder    Int      @default(0)
+  caption      String?
+  createdAt    DateTime @default(now())
+  
+  @@unique([collectionId, mediaId])
+  @@index([collectionId])
+  @@index([mediaId])
+}
+
+// ==================== 小程序家长端 ====================
+
+// 家长账号
+model Parent {
+  id           String   @id @default(cuid())
+  phone        String   @unique
+  name         String?
+  avatar       String?
+  openid       String?  @unique // 微信小程序openid
+  unionid      String?  // 微信unionid
+  lastLogin    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  children     ParentChild[]   // 关联的孩子
+  notifications Notification[]
+  orders       RechargeOrder[]
+  
+  @@index([phone])
+  @@index([openid])
+}
+
+// 家长-孩子关联
+model ParentChild {
+  id           String   @id @default(cuid())
+  parentId     String
+  parent       Parent   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  relationship String   @default("mother") // father/mother/grandfather/grandmother/other
+  status       String   @default("active") // active/pending/rejected
+  isPrimary    Boolean  @default(false) // 是否主要联系人
+  createdAt    DateTime @default(now())
+  
+  @@unique([parentId, studentId])
+  @@index([parentId])
+  @@index([studentId])
+}
+
+// 消息通知
+model Notification {
+  id         String   @id @default(cuid())
+  parentId   String?
+  parent     Parent?  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  studentId  String?  // 关联孩子（可选）
+  type       String   // feedback/notice/hours/leave/recharge/system
+  title      String
+  content    String
+  data       String?  // JSON: 额外数据
+  isRead     Boolean  @default(false)
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+  
+  @@index([parentId])
+  @@index([studentId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// 充值套餐
+model RechargePackage {
+  id           String   @id @default(cuid())
+  merchantId   String
+  name         String
+  hours        Float    // 课时数
+  price        Float    // 价格
+  originalPrice Float?  // 原价
+  gift         Float    @default(0) // 赠送课时
+  description  String?
+  validityDays Int?     // 有效期（天）
+  sortOrder    Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([merchantId])
+  @@index([isActive])
+}
+
+// 充值订单
+model RechargeOrder {
+  id            String   @id @default(cuid())
+  orderNo       String   @unique
+  parentId      String
+  parent        Parent   @relation(fields: [parentId], references: [id])
+  studentId     String
+  classId       String?
+  packageId     String?
+  merchantId    String
+  hours         Float    // 购买课时
+  giftHours     Float    @default(0) // 赠送课时
+  amount        Float    // 支付金额
+  status        String   @default("pending") // pending/paid/cancelled/refunded
+  paymentType   String?  // wechat/alipay
+  paymentNo     String?  // 支付流水号
+  paidAt        DateTime?
+  cancelledAt   DateTime?
+  remark        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([parentId])
+  @@index([studentId])
+  @@index([merchantId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ==================== 视频处理 ====================
+
+// 视频处理任务
+model VideoProcessingTask {
+  id               String   @id @default(cuid())
+  taskId           String   @unique // 任务唯一标识
+  merchantId       String
+  teacherId        String?
+  campusId         String?
+  lessonId         String?  // 关联课程（可选）
+  videoUrl         String   // 原始视频URL
+  videoDuration    Float    @default(0) // 视频时长（秒）
+  status           String   @default("pending") // pending/processing/completed/failed
+  progress         Int      @default(0) // 处理进度 0-100
+  errorMessage     String?  // 错误信息
+  options          String?  // JSON: 处理选项
+  detectedStudents String?  // JSON: 识别到的学生列表
+  createdAt        DateTime @default(now())
+  startedAt        DateTime? // 开始处理时间
+  completedAt      DateTime? // 完成时间
+  
+  clips            AiVideoClip[] // 生成的精彩片段
+  
+  @@index([merchantId])
+  @@index([teacherId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// AI识别片段
+model AiVideoClip {
+  id            String   @id @default(cuid())
+  taskId        String
+  task          VideoProcessingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  studentId     String   // 识别到的学生ID
+  studentName   String?  // 学生姓名
+  confidence    Int      // 置信度 0-100
+  startTime     Float    // 片段开始时间（秒）
+  endTime       Float    // 片段结束时间（秒）
+  duration      Float    // 片段时长（秒）
+  clipUrl       String   // 片段视频URL
+  thumbnailUrl  String?  // 缩略图URL
+  createdAt     DateTime @default(now())
+  
+  @@index([taskId])
+  @@index([studentId])
+}
+
+// AI助手历史记录
+model AiAssistantHistory {
+  id         String   @id @default(cuid())
+  merchantId String
+  teacherId  String?
+  sceneId    String   // 场景ID
+  templateId String   // 模板ID
+  prompt     String   // 用户输入
+  content    String   // 生成的内容
+  options    String?  // JSON: 额外选项
+  isFavorite Boolean  @default(false) // 是否收藏
+  isDeleted  Boolean  @default(false) // 是否删除
+  createdAt  DateTime @default(now())
+  
+  @@index([merchantId])
+  @@index([teacherId])
+  @@index([sceneId])
+  @@index([isFavorite])
+  @@index([createdAt])
+}
+
+// 课堂表现记录
+model ClassPerformance {
+  id        String   @id @default(cuid())
+  classId   String
+  studentId String
+  date      DateTime
+  rating    Int      @default(5) // 评分 1-5
+  comment   String?
+  tags      String?  // JSON数组
+  createdAt DateTime @default(now())
+  
+  @@index([classId])
+  @@index([studentId])
+  @@index([date])
+}
+
+// 学员作品/成长档案
+model StudentWork {
+  id          String   @id @default(cuid())
+  studentId   String
+  title       String
+  description String?
+  mediaUrl    String
+  mediaType   String   // image/video
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  
+  @@index([studentId])
+  @@index([date])
+}
+
+// ==================== 任务中心 ====================
+
+// 任务
+model Task {
+  id          String   @id @default(cuid())
+  merchantId  String
+  campusId    String?
+  type        String   // hours_warning/student_followup/customer_high_intent/custom/manual
+  title       String
+  description String?
+  priority    String   @default("medium") // high/medium/low
+  status      String   @default("pending") // pending/in_progress/completed/cancelled
+  dueDate     DateTime?
+  completedAt DateTime?
+  
+  // 关联数据
+  studentId   String?
+  customerId  String?
+  classId     String?
+  
+  // 额外数据（JSON格式）
+  metadata    String?
+  
+  // 操作人
+  assigneeId  String?
+  creatorId   String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([merchantId])
+  @@index([campusId])
+  @@index([type])
+  @@index([status])
+  @@index([priority])
+  @@index([dueDate])
+  @@index([studentId])
+  @@index([customerId])
+}
