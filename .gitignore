@@ -100,3 +100,9 @@ Desktop.ini
 # Local databases (Prisma SQLite / dev)
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
+
+# Certificates & local keys (do not commit)
+*.pem
+*.p12
