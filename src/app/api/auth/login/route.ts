@@ -120,7 +120,11 @@ export async function POST(request: NextRequest) {
         data: { lastLogin: new Date() },
       });
 
-      // 校区管理员登录到商家后台，但角色标记为 admin
+      const isSystemAdmin =
+        admin.role === "super_admin" ||
+        admin.role === "platform" ||
+        admin.role === "admin";
+
       const token = generateToken({
         adminId: admin.id,
         merchantId: admin.campus?.merchantId || "",
@@ -132,12 +136,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         token,
-        role: "merchant", // 统一使用商家后台
-        redirectTo: "/dashboard",
+        role: isSystemAdmin ? "platform" : "merchant",
+        redirectTo: isSystemAdmin ? "/admin" : "/dashboard",
         user: {
           id: admin.id,
           username: admin.username,
-          name: admin.name || "校区管理员",
+          name: admin.name || (isSystemAdmin ? "系统管理员" : "校区管理员"),
           campus: admin.campus?.name,
           accountRole: admin.role, // 具体角色：campus_manager/admin
         },

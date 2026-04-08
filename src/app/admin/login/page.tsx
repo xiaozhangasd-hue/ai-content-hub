@@ -37,6 +37,9 @@ export default function AdminLoginPage() {
         throw new Error(data.error || "登录失败");
       }
 
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.admin));
+      localStorage.setItem("role", "platform");
       localStorage.setItem("adminToken", data.token);
       localStorage.setItem("adminUser", JSON.stringify(data.admin));
 

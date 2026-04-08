@@ -1,350 +1,229 @@
-# 南都AI - 腾讯云部署完整指南
+# 腾讯云部署完整手册
 
-## 一、前置准备
+> 本文档是“当前真实线上环境”的完整版本。若与其他历史文档冲突，以本文和 `docs/ops-runbook.md` 为准。
 
-### 1.1 服务器要求
-- **系统**：Ubuntu 20.04/22.04 LTS
-- **配置**：2核4G内存以上（推荐4核8G）
-- **存储**：50GB以上
-- **网络**：公网IP，开放80、443、5000端口
+## 1. 当前线上事实
 
-### 1.2 域名准备
-- 一个已备案的域名
-- 域名解析到服务器IP
+- 线上地址：`http://118.25.196.240`
+- 部署方式：`PM2 + Nginx + MySQL`
+- 不使用 Docker
+- 仓库：`https://github.com/xiaozhangasd-hue/ai-content-hub.git`
+- 代码目录：`/opt/ai-content-hub`
+- 自动部署：GitHub Actions push `main` 触发
 
-### 1.3 AI服务账号
-**必须**申请以下至少一个：
+## 2. 服务器软件布局
 
-| 服务商 | 官网 | 价格 | 特点 |
-|--------|------|------|------|
-| DeepSeek | https://platform.deepseek.com/ | 约1元/百万tokens | 推荐，国内直连 |
-| 硅基流动 | https://cloud.siliconflow.cn/ | 按量计费 | 支持多种模型 |
-| 智谱AI | https://open.bigmodel.cn/ | 按量计费 | 国产大模型 |
+### Node / pnpm / pm2
 
----
+- Node：`/usr/local/node20/bin/node`
+- npm：`/usr/local/node20/bin/npm`
+- pnpm：全局安装
+- pm2：全局安装
 
-## 二、部署方式选择
-
-### 方式A：直接部署（推荐新手）
-- 使用PM2管理进程
-- 需要手动配置Nginx
-
-### 方式B：Docker部署（推荐运维）
-- 一键启动，环境隔离
-- 支持快速回滚
-
----
-
-## 三、方式A：直接部署
-
-### 3.1 安装系统依赖
+建议所有运维命令先执行：
 
 ```bash
-# 更新系统
-sudo apt update && sudo apt upgrade -y
-
-# 安装Node.js 20.x
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# 安装pnpm
-npm install -g pnpm
-
-# 安装PM2
-npm install -g pm2
-
-# 安装Nginx
-sudo apt install -y nginx
-
-# 安装SQLite
-sudo apt install -y sqlite3
-
-# 创建日志目录
-sudo mkdir -p /var/log/nandu-ai
-sudo chown -R $USER:$USER /var/log/nandu-ai
+export PATH="/usr/local/node20/bin:$PATH"
 ```
 
-### 3.2 上传代码
+### Nginx
 
-**方式1：Git克隆**
-```bash
-cd /var/www
-git clone <您的Git仓库地址> nandu-ai
-cd nandu-ai
-```
+- Nginx 主目录：`/www/server/nginx/conf`
+- 宝塔面板 vhost：`/www/server/panel/vhost/nginx`
+- 项目反代配置：`/www/server/panel/vhost/nginx/nandu-ai.conf`
 
-**方式2：本地打包上传**
-```bash
-# 本地执行打包
-pnpm build
+### MySQL
 
-# 上传到服务器
-scp -r . user@your-server:/var/www/nandu-ai/
-```
+- 程序：宝塔安装版 MySQL 8
+- socket：`/tmp/mysql.sock`
+- 数据库名：`nandu_ai`
 
-### 3.3 配置环境变量
+## 3. 首次部署步骤
+
+### 3.1 拉代码
 
 ```bash
-cd /var/www/nandu-ai
-cp .env.example .env.production
-nano .env.production
+mkdir -p /opt/ai-content-hub
+cd /opt/ai-content-hub
+git clone https://github.com/xiaozhangasd-hue/ai-content-hub.git .
 ```
 
-**必填配置：**
+### 3.2 准备环境变量
+
+创建 `/opt/ai-content-hub/.env`：
+
 ```env
-# 数据库
-DATABASE_URL="file:./data.db"
-
-# JWT密钥（请修改！）
-JWT_SECRET="your-random-string-at-least-32-chars"
-
-# AI服务（必填，选择一个）
-AI_PROVIDER="deepseek"
-DEEPSEEK_API_KEY="sk-your-api-key-here"
+DATABASE_URL="mysql://root:你的数据库密码@localhost:3306/nandu_ai"
+JWT_SECRET="请替换为生产密钥"
+AI_PROVIDER=deepseek
+DEEPSEEK_API_KEY=
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+SILICONFLOW_API_KEY=
+IMAGE_PROVIDER=siliconflow
+NEXT_PUBLIC_APP_NAME=南都AI
+NEXT_PUBLIC_APP_URL=http://118.25.196.240
+NODE_ENV=production
+PORT=5000
 ```
 
-### 3.4 安装和构建
+### 3.3 安装依赖并构建
 
 ```bash
-cd /var/www/nandu-ai
-
-# 安装依赖
-pnpm install
-
-# 生成Prisma客户端
-npx prisma generate
-
-# 初始化数据库
-npx prisma db push
-
-# 构建项目
+cd /opt/ai-content-hub
+pnpm install --frozen-lockfile
 pnpm build
 ```
 
-### 3.5 启动服务
+### 3.4 初始化数据库
 
 ```bash
-# 使用PM2启动
-pm2 start ecosystem.config.js --env production
+cd /opt/ai-content-hub
+npx prisma db push --schema=./prisma/schema.prisma
+```
 
-# 查看状态
-pm2 status
+### 3.5 启动 PM2
 
-# 查看日志
-pm2 logs nandu-ai
-
-# 设置开机自启
-pm2 startup
+```bash
+cd /opt/ai-content-hub
+cp -r .next/standalone/* ./
+pm2 start ecosystem.config.js --update-env
 pm2 save
 ```
 
-### 3.6 配置Nginx
+### 3.6 配置 Nginx
 
-```bash
-sudo nano /etc/nginx/sites-available/nandu-ai
-```
+核心反代配置：
 
-**配置内容：**
 ```nginx
 server {
-    listen 80;
-    server_name your-domain.com;  # 改成您的域名
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name 118.25.196.240 _;
 
-    # 访问日志
-    access_log /var/log/nginx/nandu-ai.access.log;
-    error_log /var/log/nginx/nandu-ai.error.log;
+    client_max_body_size 50m;
 
     location / {
-        proxy_pass http://localhost:5000;
+        proxy_pass http://127.0.0.1:5000;
         proxy_http_version 1.1;
-        
-        # 代理头
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
-        # WebSocket支持
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
         proxy_cache_bypass $http_upgrade;
-        
-        # SSE流式输出支持
-        proxy_buffering off;
-        proxy_read_timeout 86400;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
     }
 }
 ```
 
-**启用配置：**
-```bash
-# 创建软链接
-sudo ln -s /etc/nginx/sites-available/nandu-ai /etc/nginx/sites-enabled/
+## 4. 自动部署方案
 
-# 测试配置
-sudo nginx -t
+### 4.1 GitHub Actions 工作流
 
-# 重载Nginx
-sudo systemctl reload nginx
-```
+文件：
 
-### 3.7 配置SSL证书
+- `.github/workflows/deploy-tencent.yml`
 
-```bash
-# 安装Certbot
-sudo apt install -y certbot python3-certbot-nginx
+动作：
 
-# 申请证书
-sudo certbot --nginx -d your-domain.com
+1. checkout
+2. setup node + pnpm
+3. `pnpm install --frozen-lockfile`
+4. `pnpm build`
+5. SSH 登录生产机
+6. 拉取最新代码
+7. 保留生产 `.env`
+8. 执行 `bash scripts/deploy-production.sh`
 
-# 测试自动续期
-sudo certbot renew --dry-run
-```
+### 4.2 生产部署脚本
 
----
+文件：
 
-## 四、方式B：Docker部署
+- `scripts/deploy-production.sh`
 
-### 4.1 安装Docker
+脚本统一负责：
 
-```bash
-# 安装Docker
-curl -fsSL https://get.docker.com | sh
+- 安装依赖
+- 构建
+- `prisma db push`
+- 同步 standalone 运行文件
+- PM2 启动/重启
+- 健康检查
 
-# 安装Docker Compose
-sudo apt install -y docker-compose-plugin
+## 5. GitHub Secrets 说明
 
-# 添加用户到docker组
-sudo usermod -aG docker $USER
-```
+自动部署依赖以下 Secrets：
 
-### 4.2 配置环境变量
+- `PROD_HOST`
+- `PROD_PORT`
+- `PROD_USER`
+- `PROD_SSH_KEY`
+- `PROD_SSH_FINGERPRINT`
 
-```bash
-cd /var/www/nandu-ai
-cp .env.example .env
-nano .env
-```
+## 6. 发布命令
 
-### 4.3 构建和启动
+### 手工发布
 
 ```bash
-# 构建镜像
-docker compose build
-
-# 启动服务
-docker compose up -d
-
-# 查看日志
-docker compose logs -f
+cd /opt/ai-content-hub
+bash scripts/deploy-production.sh
 ```
 
-### 4.4 更新部署
+### 自动发布
 
 ```bash
-git pull
-docker compose build
-docker compose up -d
+git push origin main
 ```
 
----
-
-## 五、验证部署
-
-### 5.1 检查服务状态
+## 7. 验证项
 
 ```bash
-# PM2方式
-pm2 status
-
-# Docker方式
-docker compose ps
-
-# 检查端口
-curl http://localhost:5000
+curl http://127.0.0.1:5000/api/health
+curl http://118.25.196.240/api/health
+pm2 list
 ```
 
-### 5.2 测试功能
+预期：
 
-访问 `https://your-domain.com`：
+- `nandu-ai` 状态为 `online`
+- 健康检查返回 JSON 且 `ok=true`
 
-1. ✅ 落地页正常显示
-2. ✅ 登录功能正常
-3. ✅ 文案生成功能正常
-4. ✅ 图片生成功能正常（需配置图片API）
+## 8. 常见问题
 
----
+### 8.1 登录后跳错后台
 
-## 六、常见问题
+检查统一登录接口返回值：
 
-### Q1: AI生成失败
-**原因**：API Key未配置或无效
+- 系统管理员应返回 `/admin`
+- 商家应返回 `/dashboard`
+- 老师应返回 `/teacher`
 
-**解决**：
-1. 检查 `.env.production` 中的 `DEEPSEEK_API_KEY`
-2. 确认API Key在DeepSeek控制台中有效
-3. 查看日志：`pm2 logs nandu-ai`
+### 8.2 Prisma 同步失败
 
-### Q2: 图片/视频生成失败
-**原因**：需要额外的API配置
-
-**解决**：
-1. 申请硅基流动API Key
-2. 配置 `SILICONFLOW_API_KEY`
-3. 重启服务
-
-### Q3: 数据库错误
-**原因**：数据库未初始化
-
-**解决**：
 ```bash
-cd /var/www/nandu-ai
-npx prisma db push
+cd /opt/ai-content-hub
+npx prisma db push --schema=./prisma/schema.prisma
 ```
 
-### Q4: 端口被占用
+### 8.3 PM2 启动失败
+
 ```bash
-# 查看5000端口占用
-lsof -i:5000
-
-# 杀死进程
-kill -9 <PID>
+pm2 logs nandu-ai --lines 100
 ```
 
----
+### 8.4 Nginx 正常但首页 404
 
-## 七、运维命令
+优先检查：
 
-### PM2相关
-```bash
-pm2 restart nandu-ai    # 重启服务
-pm2 stop nandu-ai       # 停止服务
-pm2 logs nandu-ai       # 查看日志
-pm2 monit               # 监控面板
-```
+- 配置文件是否放在宝塔实际加载目录
+- 不是旧的 `/www/server/nginx/conf/vhost/`
+- 实际加载目录是 `/www/server/panel/vhost/nginx/`
 
-### Docker相关
-```bash
-docker compose restart  # 重启
-docker compose stop     # 停止
-docker compose logs -f  # 查看日志
-docker compose down     # 停止并删除容器
-```
+## 9. 推荐后续工作
 
-### 数据库备份
-```bash
-# 备份SQLite数据库
-cp /var/www/nandu-ai/prisma/data.db /backup/data-$(date +%Y%m%d).db
-
-# 定时备份（添加到crontab）
-0 2 * * * cp /var/www/nandu-ai/prisma/data.db /backup/data-$(date +\%Y\%m\%d).db
-```
-
----
-
-## 八、联系方式
-
-如有问题，请检查：
-1. PM2日志：`pm2 logs nandu-ai`
-2. Nginx日志：`/var/log/nginx/nandu-ai.error.log`
-3. 应用日志：`/var/log/nandu-ai/error.log`
+- 绑定正式域名
+- 配置 HTTPS 证书
+- 建立数据库备份
+- 增加一键回滚工作流

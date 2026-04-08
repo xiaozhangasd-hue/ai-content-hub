@@ -1,59 +1,80 @@
-name: Deploy to Tencent Cloud
+name: CI/CD Deploy Production
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 40
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      
-      - name: Install pnpm
-        run: npm install -g pnpm
-      
+          node-version: 20
+          cache: pnpm
+
+      - name: Use npm mirror
+        run: |
+          npm config set registry https://registry.npmmirror.com
+          pnpm config set registry https://registry.npmmirror.com
+
       - name: Install dependencies
-        run: pnpm install --prefer-frozen-lockfile
-      
-      - name: Generate Prisma Client
-        run: pnpm prisma generate
-      
-      - name: Build project
+        run: pnpm install --frozen-lockfile
+
+      - name: Build application
         run: pnpm build
-      
-      - name: Deploy to Tencent Cloud Server
-        uses: appleboy/ssh-action@master
+
+      - name: Deploy to production
+        uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT }}
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          port: ${{ secrets.PROD_PORT }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
+          script_stop: true
+          command_timeout: 30m
           script: |
-            cd /var/www/nandu-ai
-            
-            # 拉取最新代码
-            git fetch origin
-            git reset --hard origin/main
-            
-            # 安装依赖
-            pnpm install --prefer-frozen-lockfile
-            
-            # 初始化数据库
-            pnpm prisma generate
-            pnpm prisma db push --skip-generate
-            
-            # 重新构建
-            pnpm build
-            
-            # 重启服务
-            pm2 restart nandu-ai || pm2 start ecosystem.config.js --env production
-            
-            echo "✅ 部署成功！"
+            set -e
+            export PATH="/usr/local/node20/bin:$PATH"
+            APP_DIR="/opt/ai-content-hub"
+            REPO_URL="https://github.com/${{ github.repository }}.git"
+            BRANCH="${{ github.ref_name }}"
+            TMP_ENV="/tmp/ai-content-hub.env.backup"
+
+            if [ -f "$APP_DIR/.env" ]; then
+              cp "$APP_DIR/.env" "$TMP_ENV"
+            fi
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              rm -rf "$APP_DIR"
+              git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+            git fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+
+            if [ -f "$TMP_ENV" ]; then
+              mv "$TMP_ENV" "$APP_DIR/.env"
+            fi
+
+            bash scripts/deploy-production.sh

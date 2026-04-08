@@ -147,15 +147,15 @@ export default function AdminMerchantsPage() {
       });
       const data = await response.json();
       if (!response.ok) return;
-      const list = (data.plans || []).map((p: any) => ({
-        id: p.id,
-        name: p.name,
+      const list: PlanItem[] = (data.plans || []).map((p: Record<string, unknown>) => ({
+        id: String(p.id ?? ""),
+        name: String(p.name ?? ""),
         price: Number(p.price || 0),
         yearlyPrice: typeof p.yearlyPrice === "number" ? p.yearlyPrice : null,
       }));
       setPlans(list);
       const defaultPlan =
-        list.find((p) => p.name === "基础版" || p.name.includes("基础版")) || list[0];
+        list.find((plan) => plan.name === "基础版" || plan.name.includes("基础版")) || list[0];
       if (defaultPlan?.id) {
         setMemberForm((prev) => ({ ...prev, planId: defaultPlan.id }));
       }

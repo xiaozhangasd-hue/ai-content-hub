@@ -130,8 +130,8 @@ export default function AdminHomePage() {
             glowColor="132, 0, 255"
             disableAnimations={false}
             cards={bentoCards}
-            onCardClick={(card) => {
-              const target = (card as { href?: string }).href;
+            onCardClick={(card: { href?: string }) => {
+              const target = card.href;
               if (target) router.push(target);
             }}
           />

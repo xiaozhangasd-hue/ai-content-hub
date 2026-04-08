@@ -44,11 +44,44 @@
 
 - **项目理解加速**：初始可以依赖项目下`package.json`文件理解项目类型，如果没有或无法理解退化成阅读其他文件。
 - **Hydration 错误预防**：严禁在 JSX 渲染逻辑中直接使用 typeof window、Date.now()、Math.random() 等动态数据。必须使用 'use client' 并配合 useEffect + useState 确保动态内容仅在客户端挂载后渲染；同时严禁非法 HTML 嵌套（如 <p> 嵌套 <div>）。
+- **构建基线**：任何影响运行逻辑、路由、认证、部署的改动，都必须至少跑一次 `pnpm build`。
+- **类型约束**：禁止引入新的隐式 `any`；若第三方 JSX 组件无类型，优先补 `.d.ts` 或改为 `.tsx` 明确类型。
 
 
 ## UI 设计与组件规范 (UI & Styling Standards)
 
 - 模板默认预装核心组件库 `shadcn/ui`，位于`src/components/ui/`目录下
 - Next.js 项目**必须默认**采用 shadcn/ui 组件、风格和规范，**除非用户指定用其他的组件和规范。**
+
+## 登录与角色约定
+
+- 统一登录接口为 `src/app/api/auth/login/route.ts`
+- 系统管理员登录成功后必须返回：
+  - `role: "platform"`
+  - `redirectTo: "/admin"`
+- 商家后台登录成功后返回：
+  - `role: "merchant"`
+  - `redirectTo: "/dashboard"`
+- 老师后台登录成功后返回：
+  - `role: "teacher"`
+  - `redirectTo: "/teacher"`
+- 管理后台页面当前读取的是浏览器中的 `token` / `user` / `role`，不要只写 `adminToken`
+
+## 部署与运维约定
+
+- 生产环境不使用 Docker，统一使用 **PM2 + Nginx + MySQL**
+- 生产目录固定为 `/opt/ai-content-hub`
+- Node 固定路径：`/usr/local/node20/bin`
+- 自动部署入口：
+  - GitHub Actions：`.github/workflows/deploy-tencent.yml`
+  - 服务器脚本：`scripts/deploy-production.sh`
+- 对生产部署逻辑做修改时，必须同步更新：
+  - `docs/deploy-tencent-cloud.md`
+  - `docs/ops-runbook.md`
+
+## 文档维护约定
+
+- 当实际部署架构变化时，必须同步修正文档，不能保留已经失效的 Docker / SQLite / 旧目录说明
+- 若新增 GitHub Secrets、环境变量、运维命令、登录账号规则，也必须更新部署或运维文档
 
 

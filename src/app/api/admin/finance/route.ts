@@ -32,7 +32,11 @@ export async function GET(request: NextRequest) {
 
     const paidWhere =
       status === "all"
-        ? { status: { in: ["pending", "paid", "failed", "cancelled", "refunded", "closed"] as const } }
+        ? {
+            status: {
+              in: ["pending", "paid", "failed", "cancelled", "refunded", "closed"] as string[],
+            },
+          }
         : { status: status as "pending" | "paid" | "failed" | "cancelled" | "refunded" | "closed" };
 
     const [allOrders, monthOrders] = await Promise.all([
