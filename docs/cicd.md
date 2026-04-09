@@ -46,7 +46,7 @@ pnpm build
 1. 进入 `/opt/ai-content-hub`
 2. 解压由 GitHub Actions 上传的发布包
 3. 保留服务器已有 `.env`
-4. 用本次上传的 `.git` 元数据执行 `git reset --hard HEAD` 与 `git clean`
+4. 先解压到临时目录，再整体覆盖正式代码目录
 5. 执行 `bash scripts/deploy-production.sh`
 
 ## 部署脚本职责

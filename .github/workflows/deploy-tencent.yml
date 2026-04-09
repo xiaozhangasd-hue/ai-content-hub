@@ -14,6 +14,9 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      RELEASE_DIR: .deploy
+      RELEASE_FILE: ai-content-hub-release.tgz
 
     steps:
       - name: Checkout
@@ -41,59 +44,80 @@ jobs:
 
       - name: Create deployment archive
         run: |
-          mkdir -p .deploy
-          rm -f .deploy/ai-content-hub-release.tgz
+          mkdir -p "${RELEASE_DIR}"
+          rm -f "${RELEASE_DIR}/${RELEASE_FILE}"
           tar \
             --exclude=node_modules \
             --exclude=.next \
             --exclude=data \
             --exclude=logs \
+            --exclude=.git \
             --exclude=.deploy \
             --exclude=.env \
             --exclude=.env.local \
             --exclude='.env.*' \
-            -czf .deploy/ai-content-hub-release.tgz .
+            -czf "${RELEASE_DIR}/${RELEASE_FILE}" .
+
+      - name: Prepare SSH key
+        env:
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/prod_key
+          chmod 600 ~/.ssh/prod_key
 
       - name: Upload deployment archive
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          port: ${{ secrets.PROD_PORT }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          source: .deploy/ai-content-hub-release.tgz
-          target: /tmp
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_PORT: ${{ secrets.PROD_PORT }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+        run: |
+          scp \
+            -P "${PROD_PORT}" \
+            -i ~/.ssh/prod_key \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            "${RELEASE_DIR}/${RELEASE_FILE}" \
+            "${PROD_USER}@${PROD_HOST}:/tmp/${RELEASE_FILE}"
 
       - name: Deploy archive to production
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          port: ${{ secrets.PROD_PORT }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          script_stop: true
-          command_timeout: 30m
-          script: |
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_PORT: ${{ secrets.PROD_PORT }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+        run: |
+          ssh \
+            -p "${PROD_PORT}" \
+            -i ~/.ssh/prod_key \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            "${PROD_USER}@${PROD_HOST}" <<'EOF'
             set -e
             export PATH="/usr/local/node20/bin:$PATH"
             APP_DIR="/opt/ai-content-hub"
             TMP_ENV="/tmp/ai-content-hub.env.backup"
             RELEASE_TGZ="/tmp/ai-content-hub-release.tgz"
+            STAGE_DIR="/tmp/ai-content-hub-release"
 
             if [ -f "$APP_DIR/.env" ]; then
               cp "$APP_DIR/.env" "$TMP_ENV"
             fi
 
-            mkdir -p "$APP_DIR"
-            tar -xzf "$RELEASE_TGZ" -C "$APP_DIR"
+            rm -rf "$STAGE_DIR"
+            mkdir -p "$STAGE_DIR"
+            tar -xzf "$RELEASE_TGZ" -C "$STAGE_DIR"
             rm -f "$RELEASE_TGZ"
 
+            rm -rf "$APP_DIR"
+            mkdir -p "$APP_DIR"
+            cp -a "$STAGE_DIR"/. "$APP_DIR"/
+            rm -rf "$STAGE_DIR"
+
             cd "$APP_DIR"
-            git -c safe.directory="$APP_DIR" reset --hard HEAD
-            git -c safe.directory="$APP_DIR" clean -fd -e .env
 
             if [ -f "$TMP_ENV" ]; then
               mv "$TMP_ENV" "$APP_DIR/.env"
             fi
 
             bash scripts/deploy-production.sh
+          EOF

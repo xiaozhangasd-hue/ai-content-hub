@@ -125,7 +125,7 @@ bash scripts/deploy-production.sh
 2. 打包当前提交为发布压缩包
 3. 通过 SCP 上传到生产服务器 `/tmp`
 4. 保留服务器现有 `.env`
-5. 解压覆盖 `/opt/ai-content-hub`，并执行 `git reset --hard HEAD`、`git clean`
+5. 解压到临时目录后整体覆盖 `/opt/ai-content-hub`
 6. 执行 `bash scripts/deploy-production.sh`
 
 ## GitHub Secrets

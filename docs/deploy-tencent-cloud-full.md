@@ -134,7 +134,7 @@ server {
 6. 通过 SCP 上传到服务器 `/tmp/ai-content-hub-release.tgz`
 7. SSH 登录生产机
 8. 保留生产 `.env`
-9. 解压覆盖代码目录并执行 `git reset --hard HEAD`、`git clean -fd -e .env`
+9. 先解压到临时目录，再整体覆盖正式代码目录
 10. 执行 `bash scripts/deploy-production.sh`
 
 ### 4.2 生产部署脚本
