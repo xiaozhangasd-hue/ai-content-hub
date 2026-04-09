@@ -41,6 +41,7 @@ jobs:
 
       - name: Create deployment archive
         run: |
+          rm -f /tmp/ai-content-hub-release.tgz
           tar \
             --exclude=node_modules \
             --exclude=.next \
@@ -49,7 +50,8 @@ jobs:
             --exclude=.env \
             --exclude=.env.local \
             --exclude='.env.*' \
-            -czf ai-content-hub-release.tgz .
+            --exclude=ai-content-hub-release.tgz \
+            -czf /tmp/ai-content-hub-release.tgz .
 
       - name: Upload deployment archive
         uses: appleboy/scp-action@v0.1.7
@@ -58,7 +60,7 @@ jobs:
           username: ${{ secrets.PROD_USER }}
           port: ${{ secrets.PROD_PORT }}
           key: ${{ secrets.PROD_SSH_KEY }}
-          source: ai-content-hub-release.tgz
+          source: /tmp/ai-content-hub-release.tgz
           target: /tmp
 
       - name: Deploy archive to production
