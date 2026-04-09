@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import {
   Building2,
@@ -156,12 +157,10 @@ export default function AdminLayout({
             {navigation.map((item) => {
               const isActive = pathname === item.href;
               return (
-                <button
+                <Link
                   key={item.name}
-                  onClick={() => {
-                    router.push(item.href);
-                    setSidebarOpen(false);
-                  }}
+                  href={item.href}
+                  onClick={() => setSidebarOpen(false)}
                   className={cn(
                     "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all",
                     isActive
@@ -171,7 +170,7 @@ export default function AdminLayout({
                 >
                   <item.icon className="w-5 h-5" />
                   {item.name}
-                </button>
+                </Link>
               );
             })}
           </nav>

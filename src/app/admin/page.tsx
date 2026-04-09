@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import MagicBento from "@/components/MagicBento";
 import {
@@ -110,6 +111,11 @@ export default function AdminHomePage() {
     }
   };
 
+  const navigateTo = (target?: string) => {
+    if (!target) return;
+    window.location.href = target;
+  };
+
   return (
     <div className="space-y-6">
       <Card className="bg-slate-900/40 border-white/10 overflow-hidden">
@@ -131,8 +137,7 @@ export default function AdminHomePage() {
             disableAnimations={false}
             cards={bentoCards}
             onCardClick={(card: { href?: string }) => {
-              const target = card.href;
-              if (target) router.push(target);
+              navigateTo(card.href);
             }}
           />
         </CardContent>
@@ -268,38 +273,38 @@ export default function AdminHomePage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3">
-              <button
-                className="p-4 rounded-lg bg-slate-800/50 border border-white/5 hover:bg-slate-800 transition-colors text-left"
-                onClick={() => router.push("/admin/merchants")}
+              <Link
+                href="/admin/merchants"
+                className="block p-4 rounded-lg bg-slate-800/50 border border-white/5 hover:bg-slate-800 transition-colors text-left"
               >
                 <Building2 className="w-5 h-5 text-blue-400 mb-2" />
                 <p className="text-white font-medium">新增商家</p>
                 <p className="text-xs text-slate-400 mt-1">手动开通商家账号</p>
-              </button>
-              <button
-                className="p-4 rounded-lg bg-slate-800/50 border border-white/5 hover:bg-slate-800 transition-colors text-left"
-                onClick={() => router.push("/admin/merchants")}
+              </Link>
+              <Link
+                href="/admin/merchants"
+                className="block p-4 rounded-lg bg-slate-800/50 border border-white/5 hover:bg-slate-800 transition-colors text-left"
               >
                 <Users className="w-5 h-5 text-green-400 mb-2" />
                 <p className="text-white font-medium">会员开通</p>
                 <p className="text-xs text-slate-400 mt-1">在商家管理中开通会员</p>
-              </button>
-              <button
-                className="p-4 rounded-lg bg-slate-800/50 border border-white/5 hover:bg-slate-800 transition-colors text-left"
-                onClick={() => router.push("/admin/reports")}
+              </Link>
+              <Link
+                href="/admin/reports"
+                className="block p-4 rounded-lg bg-slate-800/50 border border-white/5 hover:bg-slate-800 transition-colors text-left"
               >
                 <LineChart className="w-5 h-5 text-purple-400 mb-2" />
                 <p className="text-white font-medium">数据报表</p>
                 <p className="text-xs text-slate-400 mt-1">导出运营数据</p>
-              </button>
-              <button
-                className="p-4 rounded-lg bg-slate-800/50 border border-white/5 hover:bg-slate-800 transition-colors text-left"
-                onClick={() => router.push("/admin/finance")}
+              </Link>
+              <Link
+                href="/admin/finance"
+                className="block p-4 rounded-lg bg-slate-800/50 border border-white/5 hover:bg-slate-800 transition-colors text-left"
               >
                 <DollarSign className="w-5 h-5 text-orange-400 mb-2" />
                 <p className="text-white font-medium">财务管理</p>
                 <p className="text-xs text-slate-400 mt-1">查看账单明细</p>
-              </button>
+              </Link>
             </div>
           </CardContent>
         </Card>
