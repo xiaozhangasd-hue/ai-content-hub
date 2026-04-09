@@ -40,12 +40,10 @@ export PATH="/usr/local/node20/bin:$PATH"
 
 ## 3. 首次部署步骤
 
-### 3.1 拉代码
+### 3.1 准备代码目录
 
 ```bash
 mkdir -p /opt/ai-content-hub
-cd /opt/ai-content-hub
-git clone https://github.com/xiaozhangasd-hue/ai-content-hub.git .
 ```
 
 ### 3.2 准备环境变量
@@ -132,10 +130,12 @@ server {
 2. setup node + pnpm
 3. `pnpm install --frozen-lockfile`
 4. `pnpm build`
-5. SSH 登录生产机
-6. 拉取最新代码
-7. 保留生产 `.env`
-8. 执行 `bash scripts/deploy-production.sh`
+5. 打包当前提交为发布压缩包
+6. 通过 SCP 上传到服务器 `/tmp/ai-content-hub-release.tgz`
+7. SSH 登录生产机
+8. 保留生产 `.env`
+9. 解压覆盖代码目录并执行 `git reset --hard HEAD`、`git clean -fd -e .env`
+10. 执行 `bash scripts/deploy-production.sh`
 
 ### 4.2 生产部署脚本
 

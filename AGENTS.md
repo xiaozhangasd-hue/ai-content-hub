@@ -75,9 +75,13 @@
 - 自动部署入口：
   - GitHub Actions：`.github/workflows/deploy-tencent.yml`
   - 服务器脚本：`scripts/deploy-production.sh`
+- 自动部署链路固定为：`GitHub Actions 构建 -> 打包发布包 -> SCP 上传服务器 -> 解压覆盖 -> 执行部署脚本`
+- 生产机不再依赖 `git fetch` / `git clone` 拉取最新代码；若发布失败，优先排查 SSH/SCP 上传与服务器解压过程
 - 对生产部署逻辑做修改时，必须同步更新：
   - `docs/deploy-tencent-cloud.md`
   - `docs/ops-runbook.md`
+  - `docs/deploy-tencent-cloud-full.md`
+  - `docs/cicd.md`
 
 ## 文档维护约定
 

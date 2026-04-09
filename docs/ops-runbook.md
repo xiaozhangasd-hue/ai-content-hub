@@ -20,22 +20,20 @@
 - 生产部署统一走 `scripts/deploy-production.sh`
 - GitHub Actions 只做两件事：
   - 先本地构建校验
-  - 再远程执行生产部署脚本
+  - 再上传发布包并远程执行生产部署脚本
 
 ## 发布流程
 
 ### 自动发布
 
 ```text
-本地提交 -> push 到 main -> GitHub Actions 构建 -> SSH 到服务器 -> 拉取最新代码 -> 执行部署脚本 -> PM2 重启
+本地提交 -> push 到 main -> GitHub Actions 构建 -> 打包源码 -> 上传服务器 -> 解压覆盖 -> 执行部署脚本 -> PM2 重启
 ```
 
 ### 手工发布
 
 ```bash
 cd /opt/ai-content-hub
-git fetch origin main
-git reset --hard origin/main
 bash scripts/deploy-production.sh
 ```
 
@@ -62,6 +60,7 @@ pm2 list
 cd /opt/ai-content-hub
 git log --oneline -n 10
 git reset --hard <目标提交>
+git clean -fd -e .env
 bash scripts/deploy-production.sh
 ```
 
@@ -113,6 +112,7 @@ bash scripts/deploy-production.sh
 优先检查：
 
 - SSH Secret 是否失效
+- `/tmp/ai-content-hub-release.tgz` 是否成功上传
 - 服务器磁盘是否不足
 - Node / pnpm / pm2 是否仍可用
 

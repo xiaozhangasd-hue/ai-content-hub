@@ -5,7 +5,7 @@
 实现以下链路：
 
 ```text
-本地开发 -> push 到 main -> GitHub Actions 构建校验 -> SSH 登录生产机 -> 更新代码 -> 执行部署脚本 -> 自动上线
+本地开发 -> push 到 main -> GitHub Actions 构建校验 -> 打包发布包 -> 上传到生产机 -> 服务器解压并执行部署脚本 -> 自动上线
 ```
 
 ## 工作流文件
@@ -30,9 +30,9 @@ pnpm build
 
 如果构建失败，不会继续部署。
 
-### 2. SSH 连接生产环境
+### 2. 上传部署包到生产环境
 
-通过仓库 Secrets 注入生产机连接信息：
+通过仓库 Secrets 注入生产机连接信息，然后 Actions 会把构建后的发布包上传到服务器：
 
 - `PROD_HOST`
 - `PROD_PORT`
@@ -44,9 +44,10 @@ pnpm build
 连接成功后，工作流会：
 
 1. 进入 `/opt/ai-content-hub`
-2. 拉取最新 `main`
+2. 解压由 GitHub Actions 上传的发布包
 3. 保留服务器已有 `.env`
-4. 执行 `bash scripts/deploy-production.sh`
+4. 用本次上传的 `.git` 元数据执行 `git reset --hard HEAD` 与 `git clean`
+5. 执行 `bash scripts/deploy-production.sh`
 
 ## 部署脚本职责
 
@@ -68,12 +69,13 @@ pnpm build
 - 代码本身无法通过生产构建
 - 需要先修复 `pnpm build`
 
-### SSH 阶段失败
+### 上传阶段失败
 
 说明：
 
 - 生产机不可达
-- SSH key / 指纹 / 用户配置不正确
+- SSH key / 用户配置不正确
+- SCP 上传过程被中断
 
 ### 部署阶段失败
 
@@ -87,7 +89,7 @@ nginx -t
 
 ## 手工补救方式
 
-如果 Actions 成功拉代码但最后一步失败，可以在服务器手工执行：
+如果 Actions 成功上传但最后一步失败，可以在服务器手工执行：
 
 ```bash
 cd /opt/ai-content-hub

@@ -52,8 +52,6 @@
 
 ```bash
 mkdir -p /opt/ai-content-hub
-cd /opt/ai-content-hub
-git clone https://github.com/xiaozhangasd-hue/ai-content-hub.git .
 ```
 
 ### 3. 环境变量
@@ -124,10 +122,11 @@ bash scripts/deploy-production.sh
 部署逻辑：
 
 1. 在 GitHub Actions 上执行 `pnpm install` 与 `pnpm build`
-2. SSH 连接生产服务器
-3. 更新服务器代码到最新 `main`
+2. 打包当前提交为发布压缩包
+3. 通过 SCP 上传到生产服务器 `/tmp`
 4. 保留服务器现有 `.env`
-5. 执行 `bash scripts/deploy-production.sh`
+5. 解压覆盖 `/opt/ai-content-hub`，并执行 `git reset --hard HEAD`、`git clean`
+6. 执行 `bash scripts/deploy-production.sh`
 
 ## GitHub Secrets
 
@@ -194,6 +193,7 @@ npx prisma db push --schema=./prisma/schema.prisma
 优先查看：
 
 - GitHub Actions 运行日志
+- `/tmp/ai-content-hub-release.tgz` 是否上传成功
 - 服务器 `pm2 logs nandu-ai`
 
 ## 备注
